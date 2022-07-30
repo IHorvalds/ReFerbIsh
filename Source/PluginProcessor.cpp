@@ -1,72 +1,174 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+//==============================================================================
 ReferbishAudioProcessor::ReferbishAudioProcessor()
+     : AudioProcessor (BusesProperties()
+                     #if ! JucePlugin_IsMidiEffect
+                      #if ! JucePlugin_IsSynth
+                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
+                      #endif
+                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+                     #endif
+                       )
 {
-    parameters.add(*this);
 }
 
-void ReferbishAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
-                                                   juce::MidiBuffer& midiMessages)
-
+ReferbishAudioProcessor::~ReferbishAudioProcessor()
 {
-    juce::ignoreUnused(midiMessages);
+}
 
-    if (parameters.enable->get())
-        buffer.applyGain(parameters.gain->get());
-    else
-        buffer.clear();
+//==============================================================================
+const juce::String ReferbishAudioProcessor::getName() const
+{
+    return JucePlugin_Name;
+}
+
+bool ReferbishAudioProcessor::acceptsMidi() const
+{
+   #if JucePlugin_WantsMidiInput
+    return true;
+   #else
+    return false;
+   #endif
+}
+
+bool ReferbishAudioProcessor::producesMidi() const
+{
+   #if JucePlugin_ProducesMidiOutput
+    return true;
+   #else
+    return false;
+   #endif
+}
+
+bool ReferbishAudioProcessor::isMidiEffect() const
+{
+   #if JucePlugin_IsMidiEffect
+    return true;
+   #else
+    return false;
+   #endif
+}
+
+double ReferbishAudioProcessor::getTailLengthSeconds() const
+{
+    return 1.0;
+}
+
+int ReferbishAudioProcessor::getNumPrograms()
+{
+    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
+                // so this should be at least 1, even if you're not really implementing programs.
+}
+
+int ReferbishAudioProcessor::getCurrentProgram()
+{
+    return 0;
+}
+
+void ReferbishAudioProcessor::setCurrentProgram (int index)
+{
+    juce::ignoreUnused (index);
+}
+
+const juce::String ReferbishAudioProcessor::getProgramName (int index)
+{
+    juce::ignoreUnused (index);
+    return {};
+}
+
+void ReferbishAudioProcessor::changeProgramName (int index, const juce::String& newName)
+{
+    juce::ignoreUnused (index, newName);
+}
+
+//==============================================================================
+void ReferbishAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    // Use this method as the place to do any pre-playback
+    // initialisation that you need..
+    juce::ignoreUnused (samplesPerBlock);
+}
+
+void ReferbishAudioProcessor::releaseResources()
+{
+    // When playback stops, you can use this as an opportunity to free up any
+    // spare memory, etc.
+}
+
+bool ReferbishAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+{
+  #if JucePlugin_IsMidiEffect
+    juce::ignoreUnused (layouts);
+    return true;
+  #else
+    // This is the place where you check if the layout is supported.
+    // In this template code we only support mono or stereo.
+    // Some plugin hosts, such as certain GarageBand versions, will only
+    // load plugins that support stereo bus layouts.
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
+     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        return false;
+
+    // This checks if the input layout matches the output layout
+   #if ! JucePlugin_IsSynth
+    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
+        return false;
+   #endif
+
+    return true;
+  #endif
+}
+
+void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+                                              juce::MidiBuffer& midiMessages)
+{
+    juce::ignoreUnused (midiMessages);
+    auto numChannels = buffer.getNumChannels();
+    auto numSamples = buffer.getNumSamples();
+
+    for (int ch = 0; ch < numChannels; ++ch)
+    {
+        float* writePointer = buffer.getWritePointer(ch);
+
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+            // Do the processing
+        }
+    }
+}
+
+//==============================================================================
+bool ReferbishAudioProcessor::hasEditor() const
+{
+    return true; // (change this to false if you choose to not supply an editor)
 }
 
 juce::AudioProcessorEditor* ReferbishAudioProcessor::createEditor()
 {
-    return new ReferbishAudioProcessorEditor(*this);
+    // TODO: Actual editor
+    return new GenericAudioProcessorEditor (*this);
 }
 
-void ReferbishAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
+//==============================================================================
+void ReferbishAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    //Serializes your parameters, and any other potential data into an XML:
-
-    juce::ValueTree params("Params");
-
-    for (auto& param: getParameters())
-    {
-        juce::ValueTree paramTree(PluginHelpers::getParamID(param));
-        paramTree.setProperty("Value", param->getValue(), nullptr);
-        params.appendChild(paramTree, nullptr);
-    }
-
-    juce::ValueTree pluginPreset("MyPlugin");
-    pluginPreset.appendChild(params, nullptr);
-    //This a good place to add any non-parameters to your preset
-
-    copyXmlToBinary(*pluginPreset.createXml(), destData);
+    // You should use this method to store your parameters in the memory block.
+    // You could do that either as raw data, or use the XML or ValueTree classes
+    // as intermediaries to make it easy to save and load complex data.
+    juce::ignoreUnused (destData);
 }
 
-void ReferbishAudioProcessor::setStateInformation(const void* data,
-                                                          int sizeInBytes)
+void ReferbishAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    //Loads your parameters, and any other potential data from an XML:
-
-    auto xml = getXmlFromBinary(data, sizeInBytes);
-
-    if (xml != nullptr)
-    {
-        auto preset = juce::ValueTree::fromXml(*xml);
-        auto params = preset.getChildWithName("Params");
-
-        for (auto& param: getParameters())
-        {
-            auto paramTree = params.getChildWithName(PluginHelpers::getParamID(param));
-
-            if (paramTree.isValid())
-                param->setValueNotifyingHost(paramTree["Value"]);
-        }
-
-        //Load your non-parameter data now
-    }
+    // You should use this method to restore your parameters from this memory block,
+    // whose contents will have been created by the getStateInformation() call.
+    juce::ignoreUnused (data, sizeInBytes);
 }
 
+//==============================================================================
+// This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new ReferbishAudioProcessor();

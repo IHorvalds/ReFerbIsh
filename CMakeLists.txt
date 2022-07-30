@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
-project(JUCECMakeRepo)
+project(ReFerbIsh)
+set(CMAKE_CXX_STANDARD 20)
 
 #including CPM.cmake, a package manager:
 #https://github.com/TheLartians/CPM.cmake
@@ -42,5 +43,6 @@ option(JUCE_BUILD_EXAMPLES "Build JUCE Examples" OFF)
 #IF you want to instead point it to a local version, you can invoke CMake with
 #-DCPM_JUCE_SOURCE="Path_To_JUCE"
 CPMAddPackage("gh:juce-framework/JUCE#master")
+CPMAddPackage("gh:Chowdhury-DSP/chowdsp_utils#master")
 
 add_subdirectory(Source)
