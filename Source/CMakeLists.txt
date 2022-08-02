@@ -26,7 +26,13 @@ target_sources(${BaseTargetName} PRIVATE
         PluginEditor.cpp
         PluginEditor.h
         Parameters.h 
-        Utils.cpp "Diffusion/Diffusion.h" "Diffusion/DiffusionStep.h" "Diffusion/DiffusionStep.cpp" "Feedback/Feedback.h")
+        "Utils.h" 
+        "Diffusion/Diffusion.h"
+        "Diffusion/Diffusion.cpp"
+        "Diffusion/DiffusionStep.h"
+        "Diffusion/DiffusionStep.cpp"
+        "Feedback/Feedback.h"
+        "Feedback/Feedback.cpp")
 
 target_compile_definitions(${BaseTargetName}
         PUBLIC

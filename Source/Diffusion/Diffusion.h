@@ -12,15 +12,19 @@ public:
     ~Diffusion();
 
     //===================================================
-    void prepare(double totalDiffusionDelayMs);
+    void prepare(juce::dsp::ProcessSpec& spec, float totalDiffusionDelayMs);
     void process(juce::AudioBuffer<float>& buffer);
 
     //===================================================
     juce::AudioBuffer<float>& getShortcutAudio(int step);
+    inline int getNumSteps() {
+        return _steps;
+    }
 private:
     int _channels;
     int _steps;
     std::vector<DiffusionStep> _diffusionSteps;
     std::vector<juce::AudioBuffer<float>> _shortcuts;
-    std::vector<float> _pitchShiftSemitones;
+    float _pitchShiftSemitones = -0.06f;
+    chowdsp::PitchShifter<float> _pitchShifter;
 };

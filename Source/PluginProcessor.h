@@ -1,7 +1,11 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <vector>
 #include "Parameters.h"
+
+#include "Diffusion/Diffusion.h"
+#include "Feedback/Feedback.h"
 
 class ReferbishAudioProcessor : public juce::AudioProcessor
 {
@@ -41,9 +45,18 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    static juce::AudioProcessorValueTreeState::ParameterLayout CreateParameterLayout();
+
+    using APVTS = juce::AudioProcessorValueTreeState;
+    APVTS m_apvts { *this, nullptr, "Parameters", CreateParameterLayout() };
+
 private:
 
     //Parameters parameters;
+    int reverbChannels = 16;
+    Diffusion diffusion;
+    Feedback feedback;
+    juce::AudioBuffer<float> processBuffer;
 
     //====================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferbishAudioProcessor)

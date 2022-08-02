@@ -8,11 +8,13 @@ class DiffusionStep
 {
 public:
     DiffusionStep(double delayTimeMs);
+    DiffusionStep(const DiffusionStep&);
+    DiffusionStep& operator=(const DiffusionStep&);
     ~DiffusionStep();
 
     //================================================
     void prepare(juce::dsp::ProcessSpec& spec);
-    void process(juce::AudioBuffer<float>& buffer, float pitchShiftSemitones = -1.f);
+    void process(juce::AudioBuffer<float>& buffer);
     
     juce::AudioBuffer<float> shortcutOut; // essentially a bypass for the diffusion
 private:
@@ -20,7 +22,6 @@ private:
 
     juce::dsp::ProcessSpec _spec;
     juce::dsp::DelayLine<float> _delayLine;
-    chowdsp::PitchShifter<float> _pitchShifter;
 
     std::vector<int> _channelMapping;
     std::vector<float> _shouldFlip;

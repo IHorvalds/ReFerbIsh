@@ -1,5 +1,5 @@
 #include "DiffusionStep.h"
-#include "../Utils.cpp"
+#include "../Utils.h"
 
 #include <chowdsp_math/Math/chowdsp_MatrixOps.h>
 
@@ -11,6 +11,30 @@ DiffusionStep::DiffusionStep(double delayTimeMs) :
     _delayPerChannel(std::vector<int>()),
     _scratchChannelStep(std::vector<float>()) { }
 
+DiffusionStep::DiffusionStep(const DiffusionStep& other)
+{
+    this->_delayTimeMs = other._delayTimeMs;
+    this->_delayLine = other._delayLine;
+    this->_channelMapping = other._channelMapping;
+    this->_delayPerChannel = other._delayPerChannel;
+    this->_shouldFlip = other._shouldFlip;
+    this->_scratchChannelStep = other._scratchChannelStep;
+    this->_spec = other._spec;
+}
+
+DiffusionStep& DiffusionStep::operator=(const DiffusionStep& other)
+{
+    this->_delayTimeMs = other._delayTimeMs;
+    this->_delayLine = other._delayLine;
+    this->_channelMapping = other._channelMapping;
+    this->_delayPerChannel = other._delayPerChannel;
+    this->_shouldFlip = other._shouldFlip;
+    this->_scratchChannelStep = other._scratchChannelStep;
+    this->_spec = other._spec;
+
+    return *this;
+}
+
 DiffusionStep::~DiffusionStep() {}
 
 void DiffusionStep::prepare(juce::dsp::ProcessSpec& spec)
@@ -19,7 +43,8 @@ void DiffusionStep::prepare(juce::dsp::ProcessSpec& spec)
     this->_delayLine.prepare(_spec);
     this->_delayLine.setMaximumDelayInSamples(static_cast<int>(std::floor(_delayTimeMs * 0.001 * _spec.sampleRate)));
 
-    srand(NULL);
+    srand(time(nullptr));
+    this->_scratchChannelStep = std::vector<float>(_spec.numChannels, { 0.f });
     this->_channelMapping = std::vector<int>(_spec.numChannels, { 0 });
     this->_shouldFlip = std::vector<float>(_spec.numChannels, { 0.f });
     this->_delayPerChannel = std::vector<int>(_spec.numChannels, { 0 });
@@ -30,32 +55,30 @@ void DiffusionStep::prepare(juce::dsp::ProcessSpec& spec)
 
         int rangeLow = static_cast<int>(std::floor((double)this->_delayLine.getMaximumDelayInSamples() * (double)i / _spec.numChannels));
         int rangeHigh = static_cast<int>(std::floor((double)this->_delayLine.getMaximumDelayInSamples() * (double)(i + 1) / _spec.numChannels));
-        this->_delayPerChannel[i] = random_between(rangeLow, rangeHigh);
+        this->_delayPerChannel[i] = random_between_int(rangeLow, rangeHigh);
     }
 
     rand_permutation(this->_channelMapping);
-
-    this->_pitchShifter.prepare(this->_spec);
 }
 
-void DiffusionStep::process(juce::AudioBuffer<float>& buffer, float pitchShiftSemitones = -1.f)
+void DiffusionStep::process(juce::AudioBuffer<float>& buffer)
 {
 
     auto numChannels = buffer.getNumChannels();
     auto numSamples = buffer.getNumSamples();
-    this->_pitchShifter.setShiftSemitones(pitchShiftSemitones);
 
-    shortcutOut = buffer;
+    //shortcutOut.makeCopyOf(buffer, true);
 
     auto** writePointers = buffer.getArrayOfWritePointers();
     for (int sample = 0; sample < numSamples; ++sample)
     {
         for (int ch = 0; ch < numChannels; ++ch)
         {
+            // read from delay line
             float delayed = this->_delayLine.popSample(ch, this->_delayPerChannel[ch]);
 
-            float detuned = this->_pitchShifter.processSample((size_t)ch, writePointers[ch][sample]);
-            this->_delayLine.pushSample(ch, detuned);
+            // push new, clean signal into the delay line
+            this->_delayLine.pushSample(ch, writePointers[ch][sample]);
 
             // fill channel wise buffer, with channel mapping and randomly flipped sample
             _scratchChannelStep[this->_channelMapping[ch]] = delayed * this->_shouldFlip[ch];
@@ -64,10 +87,12 @@ void DiffusionStep::process(juce::AudioBuffer<float>& buffer, float pitchShiftSe
         // Give it some whisky-business!
         InPlaceHadamardMix<float>(this->_scratchChannelStep.data(), 0, numChannels);
 
+        float scale = 3.f / (float)numChannels;
+
         // write back to current audio buffer
         for (int ch = 0; ch < numChannels; ++ch)
         {
-            writePointers[ch][sample] = this->_scratchChannelStep[ch];
+            writePointers[ch][sample] = this->_scratchChannelStep[ch] * scale;
         }
     }
 

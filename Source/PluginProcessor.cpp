@@ -10,7 +10,9 @@ ReferbishAudioProcessor::ReferbishAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),
+        feedback(reverbChannels),
+        diffusion(reverbChannels, 5)
 {
 }
 
@@ -86,9 +88,30 @@ void ReferbishAudioProcessor::changeProgramName (int index, const juce::String& 
 //==============================================================================
 void ReferbishAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
-    juce::ignoreUnused (samplesPerBlock);
+    juce::dsp::ProcessSpec spec;
+    spec.numChannels = reverbChannels;
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = samplesPerBlock;
+
+    float delayTime = m_apvts.getRawParameterValue(DELAYTIME_PARAM)->load();
+    diffusion.prepare(spec, delayTime);
+    feedback.prepare(spec, delayTime);
+    processBuffer.setSize(reverbChannels, samplesPerBlock);
+
+    /*diffusion = std::vector<Diffusion>();
+    feedback = std::vector<Feedback>();
+    for (int i = 0; i < getNumInputChannels(); ++i)
+    {
+        processBuffers.push_back(juce::AudioBuffer<float>(16, samplesPerBlock));
+        diffusion.push_back(std::move(Diffusion(spec.numChannels, 3)));
+        feedback.push_back(std::move(Feedback(spec.numChannels)));
+    }
+
+    for (int i = 0; i < getNumInputChannels(); ++i)
+    {
+        diffusion[i].prepare(spec, 80);
+        feedback[i].prepare(spec, 80);
+    }*/
 }
 
 void ReferbishAudioProcessor::releaseResources()
@@ -128,14 +151,53 @@ void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     auto numChannels = buffer.getNumChannels();
     auto numSamples = buffer.getNumSamples();
 
-    for (int ch = 0; ch < numChannels; ++ch)
-    {
-        float* writePointer = buffer.getWritePointer(ch);
+    int ch = 0; // only left channel for now. TODO: add right channel too
 
+    const float* readPointer = buffer.getReadPointer(ch);
+    float* writePointer = buffer.getWritePointer(ch);
+
+    // split channel into multiple channels
+    for (int sample = 0; sample < numSamples; ++sample)
+    {
+        for(int i = 0; i < reverbChannels; ++i)
+        {
+            processBuffer.setSample(i, sample, readPointer[sample]);
+        }
+    }
+
+    // Apply Diffusion steps
+    diffusion.process(processBuffer);
+
+    // add the shortcuts from the diffusion steps
+    /*for (int i = 0; i < diffusion.getNumSteps(); ++i)
+    {
+        juce::AudioBuffer<float>& shortcut = diffusion.getShortcutAudio(i);
         for (int sample = 0; sample < numSamples; ++sample)
         {
-            // Do the processing
+            for (int diffChannel = 0; diffChannel < 16; ++diffChannel)
+            {
+                processBuffer.addSample(diffChannel, sample, shortcut.getReadPointer(diffChannel)[sample]);
+            }
         }
+    }*/
+
+    // Apply feedback loop
+    float driveGain = m_apvts.getRawParameterValue(DRIVEGAIN_PARAM)->load();
+    float rt60 = m_apvts.getRawParameterValue(RT60_PARAM)->load();
+    float cutoff = m_apvts.getRawParameterValue(LOWPASS_PARAM)->load();
+    feedback.process(processBuffer, false, driveGain, rt60, cutoff);
+
+    float dryWet = m_apvts.getRawParameterValue(DRYWET_PARAM)->load();
+
+    // mix back down to one channel
+    for (int sample = 0; sample < numSamples; ++sample)
+    {
+        float delayed = 0.f;
+        for (int i = 0; i < reverbChannels; ++i)
+        {
+            delayed += processBuffer.getReadPointer(i)[sample];
+        }
+        writePointer[sample] = readPointer[sample] * dryWet + delayed * ( 1.f - dryWet );
     }
 }
 
@@ -165,6 +227,27 @@ void ReferbishAudioProcessor::setStateInformation (const void* data, int sizeInB
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
     juce::ignoreUnused (data, sizeInBytes);
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout ReferbishAudioProcessor::CreateParameterLayout()
+{
+    auto layout = juce::AudioProcessorValueTreeState::ParameterLayout();
+
+    layout.add(std::make_unique<juce::AudioParameterBool>(BYPASS_PARAM, BYPASS_PARAM, false));
+
+    layout.add(std::make_unique<juce::AudioParameterFloat>(DELAYTIME_PARAM, DELAYTIME_PARAM, 5.f, 1e3f, 200.f));
+
+    layout.add(std::make_unique<juce::AudioParameterFloat>(RT60_PARAM, RT60_PARAM, 1.f, 10.f, 5.f));
+
+    layout.add(std::make_unique<juce::AudioParameterBool>(HOLD_PARAM, HOLD_PARAM, false));
+
+    layout.add(std::make_unique<juce::AudioParameterFloat>(LOWPASS_PARAM, LOWPASS_PARAM, 200.f, 5e3f, 3e3f));
+
+    layout.add(std::make_unique<juce::AudioParameterFloat>(DRIVEGAIN_PARAM, DRIVEGAIN_PARAM, 1.f, 30.f, 2.f));
+
+    layout.add(std::make_unique<juce::AudioParameterFloat>(DRYWET_PARAM, DRYWET_PARAM, 0.f, 1.f, 0.5f));
+
+    return layout;
 }
 
 //==============================================================================
