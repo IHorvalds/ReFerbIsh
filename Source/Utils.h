@@ -3,6 +3,8 @@
 #include <vector>
 #include <random>
 
+constexpr float tenPrimes[10] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29};
+
 template <typename T>
 void swap(T& a, T& b)
 {
@@ -90,5 +92,7 @@ void InPlaceHouseholderMix(T* vec, int size)
 inline float softclipper(float x)
 {
     // basically sigmoid, centered around 0, doubled and softened
-    return 2.f * (1.f/(1.f + std::exp2f(-x * 0.2f)) - 0.5f);
+    //return 2.f * (1.f/(1.f + std::exp2f(-x * 0.2f)) - 0.5f);
+
+    return 2.f / juce::MathConstants<float>::pi * std::atanf(x);
 }

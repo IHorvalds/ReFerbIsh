@@ -55,7 +55,7 @@ bool ReferbishAudioProcessor::isMidiEffect() const
 
 double ReferbishAudioProcessor::getTailLengthSeconds() const
 {
-    return 1.0;
+    return 0.0;
 }
 
 int ReferbishAudioProcessor::getNumPrograms()
@@ -93,9 +93,9 @@ void ReferbishAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
 
-    float delayTime = m_apvts.getRawParameterValue(DELAYTIME_PARAM)->load();
-    diffusion.prepare(spec, delayTime);
-    feedback.prepare(spec, delayTime);
+    float maxDelayTime = 1e3f;
+    diffusion.prepare(spec, maxDelayTime);
+    feedback.prepare(spec, maxDelayTime);
     processBuffer.setSize(reverbChannels, samplesPerBlock);
 
     /*diffusion = std::vector<Diffusion>();
@@ -165,8 +165,21 @@ void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    float delayInMs = m_apvts.getRawParameterValue(DELAYTIME_PARAM)->load();
+    /*bool modulate = m_apvts.getParameterAsValue(MODULATE_PARAM).getValue();
+    if (modulate)
+    {
+        float modulationFreq = m_apvts.getParameterAsValue(MODFREQ_PARAM).getValue();
+        float modulationAmp = m_apvts.getParameterAsValue(MODAMP_PARAM).getValue();
+        diffusion.process(processBuffer, delayInMs, modulate, modulationFreq, modulationAmp);
+    }
+    else {
+        diffusion.process(processBuffer, delayInMs, false, 0.f, 0.f);
+    }*/
+    diffusion.process(processBuffer, delayInMs, false, 0.f, 0.f);
+    DBG(delayInMs);
+
     // Apply Diffusion steps
-    diffusion.process(processBuffer);
 
     // add the shortcuts from the diffusion steps
     /*for (int i = 0; i < diffusion.getNumSteps(); ++i)
@@ -185,7 +198,10 @@ void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float driveGain = m_apvts.getRawParameterValue(DRIVEGAIN_PARAM)->load();
     float rt60 = m_apvts.getRawParameterValue(RT60_PARAM)->load();
     float cutoff = m_apvts.getRawParameterValue(LOWPASS_PARAM)->load();
-    feedback.process(processBuffer, false, driveGain, rt60, cutoff);
+    bool shouldHold = m_apvts.getParameterAsValue(HOLD_PARAM).getValue();
+    bool shimmer = m_apvts.getParameterAsValue(SHIMMER_PARAM).getValue();
+    float shimmerAmount = m_apvts.getParameterAsValue(SHIMMERAMOUNT_PARAM).getValue();
+    feedback.process(processBuffer, delayInMs, shimmer, shimmerAmount, driveGain, shouldHold, rt60, cutoff);
 
     float dryWet = m_apvts.getRawParameterValue(DRYWET_PARAM)->load();
 
@@ -197,6 +213,7 @@ void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             delayed += processBuffer.getReadPointer(i)[sample];
         }
+        // TODO: remove the * dryWet so we don't lose volume
         writePointer[sample] = readPointer[sample] * dryWet + delayed * ( 1.f - dryWet );
     }
 }
@@ -237,9 +254,19 @@ juce::AudioProcessorValueTreeState::ParameterLayout ReferbishAudioProcessor::Cre
 
     layout.add(std::make_unique<juce::AudioParameterFloat>(DELAYTIME_PARAM, DELAYTIME_PARAM, 5.f, 1e3f, 200.f));
 
-    layout.add(std::make_unique<juce::AudioParameterFloat>(RT60_PARAM, RT60_PARAM, 1.f, 10.f, 5.f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(MODFREQ_PARAM, MODFREQ_PARAM, 0.5f, 10.f, 3.f));
+    
+    layout.add(std::make_unique<juce::AudioParameterBool>(MODULATE_PARAM, MODULATE_PARAM, false));
+    
+    layout.add(std::make_unique<juce::AudioParameterFloat>(MODAMP_PARAM, MODAMP_PARAM, 0.001f, 0.1f, 0.05f));
+
+    layout.add(std::make_unique<juce::AudioParameterFloat>(RT60_PARAM, RT60_PARAM, 1.f, 1000.f, 5.f));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(HOLD_PARAM, HOLD_PARAM, false));
+
+    layout.add(std::make_unique<juce::AudioParameterBool>(SHIMMER_PARAM, SHIMMER_PARAM, false));
+
+    layout.add(std::make_unique<juce::AudioParameterFloat>(SHIMMERAMOUNT_PARAM, SHIMMERAMOUNT_PARAM, 0.1f, .65f, 0.2f));
 
     layout.add(std::make_unique<juce::AudioParameterFloat>(LOWPASS_PARAM, LOWPASS_PARAM, 200.f, 5e3f, 3e3f));
 

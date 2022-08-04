@@ -13,17 +13,17 @@ public:
 
     //============================
     void prepare(juce::dsp::ProcessSpec& spec, float delayTimeMs);
-    void process(juce::AudioBuffer<float>& buffer, bool shimmerOn, float driveGain, float rt60, float lowPassCutoff);
+    void process(juce::AudioBuffer<float>& buffer, float delayTimeMs, bool shimmerOn, float shimmerGain, float driveGain, bool hold, float rt60, float lowPassCutoff);
 private:
     int _channels;
-    double _delayTimeMs;
+    double _maxDelayTimeMs;
     juce::dsp::ProcessSpec _spec;
     juce::dsp::DelayLine<float> _delayLine;
 
     // Can be low pass or band pass, but pls not high pass.
     using Filter = juce::dsp::IIR::Filter<float>;
 
-    Filter _freqDependentDecay;
+    std::vector<Filter> _freqDependentDecay;
     float _decayGain = 0.95f;
 
     chowdsp::PitchShifter<float> _pitchShifter;
@@ -35,6 +35,7 @@ private:
     std::vector<int> _delayPerChannel;
 
     //==============================================================
-    void SetupLowPassFilter(float cutoff);
-    void SetupDecayGain(float rt60);
+    void setupLowPassFilter(float cutoff, int ch);
+    float getDecayGain(float rt60, float delayTimeMs);
+    void setRandomDelayPerChannel(int delayInSamples);
 };

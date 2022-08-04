@@ -12,9 +12,29 @@
 #define RT60_PARAM "Decay time"
 #endif // !RT60_PARAM
 
+#ifndef MODULATE_PARAM
+#define MODULATE_PARAM "Modulation"
+#endif // !MODULATE_PARAM
+
+#ifndef MODFREQ_PARAM
+#define MODFREQ_PARAM "Modulation Frequency"
+#endif // !MODFREQ_PARAM
+
+#ifndef MODAMP_PARAM
+#define MODAMP_PARAM "Modulaiton Amplitude"
+#endif // !MODAMP_PARAM
+
 #ifndef HOLD_PARAM
 #define HOLD_PARAM "Hold"
 #endif // !HOLD_PARAM
+
+#ifndef SHIMMER_PARAM
+#define SHIMMER_PARAM "Shimmer"
+#endif // !SHIMMER_PARAM
+
+#ifndef SHIMMERAMOUNT_PARAM
+#define SHIMMERAMOUNT_PARAM "Shimmer Amount"
+#endif // !SHIMMERAMOUNT_PARAM
 
 #ifndef LOWPASS_PARAM
 #define LOWPASS_PARAM "Lowpass cutoff"
