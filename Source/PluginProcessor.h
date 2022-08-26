@@ -7,6 +7,12 @@
 #include "Diffusion/Diffusion.h"
 #include "Feedback/Feedback.h"
 
+enum ChainPosition
+{
+    DiffusionPosition,
+    FeedbackPosition
+};
+
 class ReferbishAudioProcessor : public juce::AudioProcessor
 {
 public:
@@ -48,15 +54,18 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout CreateParameterLayout();
 
     using APVTS = juce::AudioProcessorValueTreeState;
-    APVTS m_apvts { *this, nullptr, "Parameters", CreateParameterLayout() };
+    APVTS m_apvts { *this, nullptr, "Referbish_params", CreateParameterLayout() };
 
 private:
 
-    //Parameters parameters;
-    int reverbChannels = 16;
-    Diffusion diffusion;
-    Feedback feedback;
-    juce::AudioBuffer<float> processBuffer;
+    int reverbChannels = 8;
+
+    std::vector<float> channelStep;
+    juce::AudioBuffer<float> leftProcessBuffer;
+    juce::AudioBuffer<float> rightProcessBuffer;
+
+    juce::dsp::ProcessorChain<Diffusion<4>, Feedback> leftChain;
+    juce::dsp::ProcessorChain<Diffusion<4>, Feedback> rightChain;
 
     //====================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferbishAudioProcessor)

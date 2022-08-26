@@ -44,5 +44,8 @@ option(JUCE_BUILD_EXAMPLES "Build JUCE Examples" OFF)
 #-DCPM_JUCE_SOURCE="Path_To_JUCE"
 CPMAddPackage("gh:juce-framework/JUCE#master")
 CPMAddPackage("gh:Chowdhury-DSP/chowdsp_utils#master")
+CPMAddPackage("gh:Microsoft/GSL#main")
+
+set(DEBUG_PRINTS OFF)
 
 add_subdirectory(Source)

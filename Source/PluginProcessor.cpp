@@ -10,9 +10,7 @@ ReferbishAudioProcessor::ReferbishAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       ),
-        feedback(reverbChannels),
-        diffusion(reverbChannels, 5)
+                       )
 {
 }
 
@@ -94,9 +92,22 @@ void ReferbishAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     spec.maximumBlockSize = samplesPerBlock;
 
     float maxDelayTime = 1e3f;
-    diffusion.prepare(spec, maxDelayTime);
-    feedback.prepare(spec, maxDelayTime);
-    processBuffer.setSize(reverbChannels, samplesPerBlock);
+    /*diffusion.prepare(spec, maxDelayTime);
+    feedback.prepare(spec, maxDelayTime);*/
+
+    leftChain.get<ChainPosition::DiffusionPosition>().maxDiffusionDelayMs = maxDelayTime;
+    rightChain.get<ChainPosition::DiffusionPosition>().maxDiffusionDelayMs = maxDelayTime;
+    leftChain.get<ChainPosition::FeedbackPosition>().maxDelayTimeMs = maxDelayTime;
+    rightChain.get<ChainPosition::FeedbackPosition>().maxDelayTimeMs = maxDelayTime;
+
+    leftChain.prepare(spec);
+    rightChain.prepare(spec);
+
+    int channels = std::max(this->getTotalNumOutputChannels(), this->getTotalNumInputChannels());
+    channelStep = std::vector<float>(channels, { 0.f });
+    leftProcessBuffer.setSize(reverbChannels, samplesPerBlock); // we will hold all channels in a single buffer. i.e. for each channel in channels we hold (reverb channels)
+    rightProcessBuffer.setSize(reverbChannels, samplesPerBlock); // we will hold all channels in a single buffer. i.e. for each channel in channels we hold (reverb channels)
+    
 
     /*diffusion = std::vector<Diffusion>();
     feedback = std::vector<Feedback>();
@@ -147,75 +158,118 @@ bool ReferbishAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                               juce::MidiBuffer& midiMessages)
 {
+
+    juce::ScopedNoDenormals noDenormals;
+
     juce::ignoreUnused (midiMessages);
-    auto numChannels = buffer.getNumChannels();
-    auto numSamples = buffer.getNumSamples();
+    int numSamples = buffer.getNumSamples();
 
-    int ch = 0; // only left channel for now. TODO: add right channel too
+    // parameters
+    float driveGain     = m_apvts.getRawParameterValue(DRIVEGAIN_PARAM)->load();
+    float rt60          = m_apvts.getRawParameterValue(RT60_PARAM)->load();
+    float cutoff        = m_apvts.getRawParameterValue(LOWPASS_PARAM)->load();
+    bool shouldHold     = m_apvts.getRawParameterValue(HOLD_PARAM)->load();
+    bool shimmer        = m_apvts.getRawParameterValue(SHIMMER_PARAM)->load();
+    float shimmerAmount = m_apvts.getRawParameterValue(SHIMMERAMOUNT_PARAM)->load();
+    float dryWet        = m_apvts.getRawParameterValue(DRYWET_PARAM)->load();
+    float delayInMs     = m_apvts.getRawParameterValue(DELAYTIME_PARAM)->load();
+    bool channelMix     = m_apvts.getRawParameterValue(CHANNEL_MIX_PARAM)->load();
+    bool bypass         = m_apvts.getRawParameterValue(BYPASS_PARAM)->load();
 
-    const float* readPointer = buffer.getReadPointer(ch);
-    float* writePointer = buffer.getWritePointer(ch);
-
-    // split channel into multiple channels
-    for (int sample = 0; sample < numSamples; ++sample)
+    if (!bypass)
     {
-        for(int i = 0; i < reverbChannels; ++i)
-        {
-            processBuffer.setSample(i, sample, readPointer[sample]);
-        }
-    }
 
-    float delayInMs = m_apvts.getRawParameterValue(DELAYTIME_PARAM)->load();
-    /*bool modulate = m_apvts.getParameterAsValue(MODULATE_PARAM).getValue();
-    if (modulate)
-    {
-        float modulationFreq = m_apvts.getParameterAsValue(MODFREQ_PARAM).getValue();
-        float modulationAmp = m_apvts.getParameterAsValue(MODAMP_PARAM).getValue();
-        diffusion.process(processBuffer, delayInMs, modulate, modulationFreq, modulationAmp);
-    }
-    else {
-        diffusion.process(processBuffer, delayInMs, false, 0.f, 0.f);
-    }*/
-    diffusion.process(processBuffer, delayInMs, false, 0.f, 0.f);
-    DBG(delayInMs);
+        leftChain.get<ChainPosition::DiffusionPosition>().diffusionDelayMs  = delayInMs;
+        rightChain.get<ChainPosition::DiffusionPosition>().diffusionDelayMs = delayInMs;
 
-    // Apply Diffusion steps
+        leftChain.get<ChainPosition::FeedbackPosition>().updateParameters(delayInMs, shimmer, shimmerAmount, driveGain, shouldHold, rt60, cutoff);
+        rightChain.get<ChainPosition::FeedbackPosition>().updateParameters(delayInMs, shimmer, shimmerAmount, driveGain, shouldHold, rt60, cutoff);
 
-    // add the shortcuts from the diffusion steps
-    /*for (int i = 0; i < diffusion.getNumSteps(); ++i)
-    {
-        juce::AudioBuffer<float>& shortcut = diffusion.getShortcutAudio(i);
+
+
+        // split channel into multiple channels
         for (int sample = 0; sample < numSamples; ++sample)
         {
-            for (int diffChannel = 0; diffChannel < 16; ++diffChannel)
+            const float* readPointerLeft = buffer.getReadPointer(0);
+            const float* readPointerRight = buffer.getReadPointer(1);
+            for(int i = 0; i < reverbChannels; ++i)
             {
-                processBuffer.addSample(diffChannel, sample, shortcut.getReadPointer(diffChannel)[sample]);
+                leftProcessBuffer.setSample(i, sample, readPointerLeft[sample]);
+                rightProcessBuffer.setSample(i, sample, readPointerRight[sample]);
             }
         }
-    }*/
 
-    // Apply feedback loop
-    float driveGain = m_apvts.getRawParameterValue(DRIVEGAIN_PARAM)->load();
-    float rt60 = m_apvts.getRawParameterValue(RT60_PARAM)->load();
-    float cutoff = m_apvts.getRawParameterValue(LOWPASS_PARAM)->load();
-    bool shouldHold = m_apvts.getParameterAsValue(HOLD_PARAM).getValue();
-    bool shimmer = m_apvts.getParameterAsValue(SHIMMER_PARAM).getValue();
-    float shimmerAmount = m_apvts.getParameterAsValue(SHIMMERAMOUNT_PARAM).getValue();
-    feedback.process(processBuffer, delayInMs, shimmer, shimmerAmount, driveGain, shouldHold, rt60, cutoff);
 
-    float dryWet = m_apvts.getRawParameterValue(DRYWET_PARAM)->load();
+        leftChain.get<ChainPosition::DiffusionPosition>().processBuffer(leftProcessBuffer);
+        rightChain.get<ChainPosition::DiffusionPosition>().processBuffer(rightProcessBuffer);
 
-    // mix back down to one channel
-    for (int sample = 0; sample < numSamples; ++sample)
-    {
-        float delayed = 0.f;
-        for (int i = 0; i < reverbChannels; ++i)
+        leftChain.get<ChainPosition::FeedbackPosition>().processBuffer(leftProcessBuffer);
+        rightChain.get<ChainPosition::FeedbackPosition>().processBuffer(rightProcessBuffer);
+
+        for (int sample = 0; sample < numSamples; ++sample)
         {
-            delayed += processBuffer.getReadPointer(i)[sample];
+
+            float delayedLeft = 0.f;
+            float delayedRight = 0.f;
+            for (int i = 0; i < reverbChannels; ++i)
+            {
+                delayedLeft += leftProcessBuffer.getReadPointer(i)[sample];
+                delayedRight += rightProcessBuffer.getReadPointer(i)[sample];
+            }
+            
+            channelStep[0] = delayedLeft;
+            channelStep[1] = delayedRight;
+
+            if (channelMix)
+            {
+                Utilities::InPlaceHouseholderMix<float>(channelStep);
+            }
+
+            // TODO: remove the * dryWet so we don't lose volume
+            float* leftWritePointer = buffer.getWritePointer(0);
+            leftWritePointer[sample] = leftWritePointer[sample] * dryWet + channelStep[0] * (1.f - dryWet);
+            
+            float* rightWritePointer = buffer.getWritePointer(1);
+            rightWritePointer[sample] = rightWritePointer[sample] * dryWet + channelStep[1] * (1.f - dryWet);
         }
-        // TODO: remove the * dryWet so we don't lose volume
-        writePointer[sample] = readPointer[sample] * dryWet + delayed * ( 1.f - dryWet );
     }
+
+    // TODO: Have a choice whether to mix channels together or output separately
+    // 
+    // 
+    //for (int ch = 0; ch < numChannels; ++ch)
+    //{
+    //    const float* readPointer = buffer.getReadPointer(ch);
+    //    float* writePointer = buffer.getWritePointer(ch);
+
+    //    // split channel into multiple channels
+    //    for (int sample = 0; sample < numSamples; ++sample)
+    //    {
+    //        for(int i = 0; i < reverbChannels; ++i)
+    //        {
+    //            processBuffer.setSample(i, sample, readPointer[sample]);
+    //        }
+    //    }
+
+    //    diffusion.process(processBuffer, delayInMs);
+    //    DBG(delayInMs);
+
+    //    // Apply feedback loop
+    //    feedback.process(processBuffer, delayInMs, shimmer, shimmerAmount, driveGain, shouldHold, rt60, cutoff);
+
+
+    //    // mix back down to one channel
+    //    for (int sample = 0; sample < numSamples; ++sample)
+    //    {
+    //        float delayed = 0.f;
+    //        for (int i = 0; i < reverbChannels; ++i)
+    //        {
+    //            delayed += processBuffer.getReadPointer(i)[sample];
+    //        }
+    //        //// TODO: remove the * dryWet so we don't lose volume
+    //        //writePointer[sample] = readPointer[sample] * dryWet + delayed * ( 1.f - dryWet );
+    //    }
+    //}
 }
 
 //==============================================================================
@@ -254,11 +308,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout ReferbishAudioProcessor::Cre
 
     layout.add(std::make_unique<juce::AudioParameterFloat>(DELAYTIME_PARAM, DELAYTIME_PARAM, 5.f, 1e3f, 200.f));
 
-    layout.add(std::make_unique<juce::AudioParameterFloat>(MODFREQ_PARAM, MODFREQ_PARAM, 0.5f, 10.f, 3.f));
-    
-    layout.add(std::make_unique<juce::AudioParameterBool>(MODULATE_PARAM, MODULATE_PARAM, false));
-    
-    layout.add(std::make_unique<juce::AudioParameterFloat>(MODAMP_PARAM, MODAMP_PARAM, 0.001f, 0.1f, 0.05f));
+    //layout.add(std::make_unique<juce::AudioParameterFloat>(MODFREQ_PARAM, MODFREQ_PARAM, 0.5f, 10.f, 3.f));
+    //
+    //layout.add(std::make_unique<juce::AudioParameterBool>(MODULATE_PARAM, MODULATE_PARAM, false));
+    //
+    //layout.add(std::make_unique<juce::AudioParameterFloat>(MODAMP_PARAM, MODAMP_PARAM, 0.001f, 0.1f, 0.05f));
+
+    layout.add(std::make_unique<juce::AudioParameterBool>(CHANNEL_MIX_PARAM, CHANNEL_MIX_PARAM, false));
 
     layout.add(std::make_unique<juce::AudioParameterFloat>(RT60_PARAM, RT60_PARAM, 1.f, 1000.f, 5.f));
 

@@ -16,7 +16,7 @@ juce_add_plugin("${BaseTargetName}"
         PLUGIN_MANUFACTURER_CODE IHpd
         PLUGIN_CODE Rfrb
         FORMATS AU VST3 Standalone
-        PRODUCT_NAME "ReFerbIsh Reverb")
+        PRODUCT_NAME "ReFerbIsh Reverb ${CMAKE_BUILD_TYPE}")
 
 juce_generate_juce_header(${BaseTargetName})
 
@@ -26,13 +26,12 @@ target_sources(${BaseTargetName} PRIVATE
         PluginEditor.cpp
         PluginEditor.h
         Parameters.h 
-        "Utils.h" 
-        "Diffusion/Diffusion.h"
-        "Diffusion/Diffusion.cpp"
-        "Diffusion/DiffusionStep.h"
-        "Diffusion/DiffusionStep.cpp"
-        "Feedback/Feedback.h"
-        "Feedback/Feedback.cpp")
+        Utils.h
+        Diffusion/Diffusion.h
+        
+        Diffusion/DiffusionStep.h
+        Feedback/Feedback.h
+)
 
 target_compile_definitions(${BaseTargetName}
         PUBLIC
@@ -53,6 +52,7 @@ target_link_libraries(${BaseTargetName}
         juce::juce_audio_plugin_client
         juce::juce_audio_formats
         chowdsp::chowdsp_dsp_utils
+        Microsoft.GSL::GSL
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

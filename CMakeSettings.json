@@ -15,23 +15,13 @@
             "name": "x64-Release",
             "generator": "Ninja",
             "configurationType": "Release",
-            "inheritEnvironments": [ "msvc_x64_x64" ],
             "buildRoot": "${projectDir}\\build\\${name}",
             "installRoot": "${projectDir}\\out\\install\\${name}",
             "cmakeCommandArgs": "",
             "buildCommandArgs": "",
-            "ctestCommandArgs": ""
-        },
-        {
-            "name": "x64-MinSizeRel",
-            "generator": "Ninja",
-            "configurationType": "MinSizeRel",
+            "ctestCommandArgs": "",
             "inheritEnvironments": [ "msvc_x64_x64" ],
-            "buildRoot": "${projectDir}\\build\\${name}",
-            "installRoot": "${projectDir}\\out\\install\\${name}",
-            "cmakeCommandArgs": "",
-            "buildCommandArgs": "",
-            "ctestCommandArgs": ""
+            "variables": []
         }
     ]
 }

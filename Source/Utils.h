@@ -2,97 +2,122 @@
 
 #include <vector>
 #include <random>
+#include <chrono>
+#include <gsl/span>
 
-constexpr float tenPrimes[10] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29};
+namespace Utilities {
 
-template <typename T>
-void swap(T& a, T& b)
-{
-    T c = a;
-    a = b;
-    b = c;
-}
+    constexpr float tenPrimes[10] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29};
 
-template <typename T>
-void rand_permutation(std::vector<T>& vec)
-{
-    size_t top = vec.size() - 1;
-
-    srand(time(nullptr));
-
-    for (size_t i = top; i > 0; --i)
+    template <typename Type>
+    struct Random
     {
-        int pivot = rand() % i;
-        swap(vec[pivot], vec[i]);
-    }
-}
+    private:
+        std::minstd_rand0 rng;
 
-inline float random_between_float(float a, float b)
-{
-    std::random_device rd;
-    std::mt19937 generator(rd());
-    if (b < a)
-        swap(a, b);
-    std::uniform_real_distribution<float> dist(a, b);
-    return dist(generator);
-}
+    public:
+        void rand_permutation(std::vector<Type>& vec)
+        {
+            std::shuffle(vec.begin(), vec.end(), rng);
+        }
 
-inline int random_between_int(int a, int b)
-{
-    std::random_device rd;
-    std::mt19937 generator(rd());
-    if (b < a)
-        swap(a, b);
-    std::uniform_int_distribution<int> dist(a, b);
-    return dist(generator);
-}
+        Type random_between(Type a, Type b) {return (Type)0; };
 
-template <typename T>
-void InPlaceHadamardMix(T* vec, size_t start, int size)
-{
-    if (size <= 1)
+        Type random_between(Type a, Type b) requires std::integral<Type>;
+
+        Type random_between(Type a, Type b) requires std::floating_point<Type>;
+    };
+    
+
+    template <typename Type>
+    Type Random<Type>::random_between(Type a, Type b) requires std::floating_point<Type>
     {
-        return;
+        if (b < a)
+            std::swap(a, b);
+        std::uniform_real_distribution<Type> dist(a, b);
+        return dist(rng);
     }
 
-    int half_size = size / 2;
-
-    InPlaceHadamardMix<T>(vec, start, half_size);
-    InPlaceHadamardMix<T>(vec, start + half_size, half_size);
-
-    for (int i = 0; i < half_size; ++i)
+    template <typename Type>
+    Type Random<Type>::random_between(Type a, Type b) requires std::integral<Type>
     {
-        T a = vec[start + i];
-        T b = vec[start + half_size + i];
-        vec[start + i] = a + b;
-        vec[start + half_size + i] = a - b;
-    }
-}
-
-template <typename T>
-void InPlaceHouseholderMix(T* vec, int size)
-{
-    float sum = 0.f;
-    float multiplier = -2.f / (float)size;
-
-    for (int i = 0; i < size; ++i)
-    {
-        sum += vec[i];
+        if (b < a)
+            std::swap(a, b);
+        std::uniform_int_distribution<Type> dist(a, b);
+        return dist(rng);
     }
 
-    sum *= multiplier;
-
-    for (int i = 0; i < size; ++i)
+    template <typename T>
+    void InPlaceHadamardMix(T* vec, size_t start, int size)
     {
-        vec[i] += sum;
+        if (size <= 1)
+        {
+            return;
+        }
+
+        int half_size = size / 2;
+
+        InPlaceHadamardMix<T>(vec, start, half_size);
+        InPlaceHadamardMix<T>(vec, start + half_size, half_size);
+
+        for (int i = 0; i < half_size; ++i)
+        {
+            T a = vec[start + i];
+            T b = vec[start + half_size + i];
+            vec[start + i] = a + b;
+            vec[start + half_size + i] = a - b;
+        }
     }
 
-}
+    template <std::floating_point Type>
+    void InPlaceHouseholderMix(gsl::span<Type> s)
+    {
+        Type sum = (Type)0;
+        Type multiplier = (Type)-2 / (Type)s.size();
 
-inline float softclipper(float x)
-{
-    // basically sigmoid, centered around 0, doubled and softened
-    //return 2.f * (1.f/(1.f + std::exp2f(-x * 0.2f)) - 0.5f);
+        /*for (size_t i = 0; i < s.size(); ++i)
+        {
+            sum += s[i];
+        }*/
+        for (auto& val : s)
+        {
+            sum += val;
+        }
 
-    return 2.f / juce::MathConstants<float>::pi * std::atanf(x);
-}
+        sum *= multiplier;
+
+        /*for (size_t i = 0; i < s.size(); ++i)
+        {
+            vec[i] += sum;
+        }*/
+        for (auto& val : s)
+        {
+            val += sum;
+        }
+    }
+
+    template <std::floating_point SampleType>
+    inline SampleType softclipper(SampleType x)
+    {
+        // basically sigmoid, centered around 0, doubled and softened
+        //return 2.f * (1.f/(1.f + std::exp2f(-x * 0.2f)) - 0.5f);
+
+        return static_cast<SampleType>(2) / juce::MathConstants<SampleType>::pi * std::atan(x);
+    }
+
+    /// <summary>
+    ///     Assumes sampleStep (1 sample for each channel we need to multiplex) has at least size equal to permutation.
+    /// </summary>
+    /// <typeparam name="Type">Float type</typeparam>
+    /// <param name="permutation">Generate this before running this function. See rand_permutation()</param>
+    template <typename Type>
+    void additive_multiplexer(std::vector<int>& permutation, std::vector<Type>& inputSampleStep, std::vector<Type>& outputSampleStep)
+    {
+        jassert(permutation.size() == inputSampleStep.size() && inputSampleStep.size() == outputSampleStep.size());
+
+        for (size_t ch = 0; ch < permutation.size(); ++ch)
+        {
+            outputSampleStep[ch] = inputSampleStep[ch] + inputSampleStep[permutation[ch]];
+        }
+    }
+};
