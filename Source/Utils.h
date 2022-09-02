@@ -7,7 +7,7 @@
 
 namespace Utilities {
 
-    constexpr float tenPrimes[10] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29};
+    constexpr float primes[16] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53};
 
     template <typename Type>
     struct Random
@@ -75,10 +75,6 @@ namespace Utilities {
         Type sum = (Type)0;
         Type multiplier = (Type)-2 / (Type)s.size();
 
-        /*for (size_t i = 0; i < s.size(); ++i)
-        {
-            sum += s[i];
-        }*/
         for (auto& val : s)
         {
             sum += val;
@@ -86,10 +82,6 @@ namespace Utilities {
 
         sum *= multiplier;
 
-        /*for (size_t i = 0; i < s.size(); ++i)
-        {
-            vec[i] += sum;
-        }*/
         for (auto& val : s)
         {
             val += sum;

@@ -2,67 +2,67 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include <gsl/algorithm>
 
-#include "DiffusionStep.h"
 #include "../Utils.h"
 
-template <int Steps>
+template <std::floating_point SampleType>
 class Diffusion
 {
 public:
     Diffusion() = default;
     ~Diffusion() = default;
 
-    float maxDiffusionDelayMs = 0.f;
-    float diffusionDelayMs = 0.f;
+    SampleType maxDiffusionDelayMs = 0.0;
+    SampleType diffusionDelayMs = 0.0;
+    SampleType m_gain = 0.5;
+    SampleType m_modulationAmplitude = 1.0;
+    SampleType m_modulationFrequency = 1.5;
+    int index = 0;
 
     //===================================================
     void prepare(const juce::dsp::ProcessSpec& spec)
     {
-        this->_diffusionSteps = std::vector<DiffusionStep>(Steps, { 0.0, 0 });
-        for (int i = 0; i < Steps; ++i)
-        {
-            //float rangeLow = maxDiffusionDelayMs * ((float)i / _channels);
-            float rangeHigh = maxDiffusionDelayMs * ((float)(i + 1) / Steps);
-            _diffusionSteps[i] = DiffusionStep((double)rangeHigh, i);
+        m_delayLine.setMaximumDelayInSamples(gsl::narrow_cast<int>(std::floor(maxDiffusionDelayMs * 0.001 * spec.sampleRate)));
+        m_delayLine.prepare(spec);
 
-            _diffusionSteps[i].prepare(spec);
+        if (index % 2)
+        {
+            m_oscillator.initialise([](SampleType x)
+            {
+                return juce::dsp::FastMathApproximations::sin(x);
+            });
         }
+        else
+        {
+            m_oscillator.initialise([](SampleType x)
+            {
+                return juce::dsp::FastMathApproximations::cos(x);
+            });
+        }
+        m_oscillator.prepare(spec);
+        m_oscillator.setFrequency(m_modulationFrequency);
     }
 
     //===================================================
-    void processBuffer(juce::AudioBuffer<float>& buffer)
+    void processStep(std::vector<SampleType>& channelStep)
     {
-        for (int i = 0; i < Steps; ++i)
+        m_oscillator.setFrequency(m_modulationFrequency);
+        for (int i = 0; i < channelStep.size(); ++i)
         {
-            float rangeHigh = diffusionDelayMs * ((float)(i + 1) / Steps);
-#if DEBUG
-            //DBG("Diffusion step " + juce::String(i) + " delay ms " + juce::String(rangeHigh));
-#endif
-            _diffusionSteps[i].processBuffer(buffer, rangeHigh);
+            SampleType delayed = m_delayLine.popSample(i, diffusionDelayMs + gsl::narrow_cast<int>(m_oscillator.processSample(0.0) * m_modulationAmplitude));
+            SampleType input = delayed * (-m_gain) + channelStep[i];
+
+            // add to delay line
+            m_delayLine.pushSample(i, input);
+
+            // output
+            channelStep[i] = m_gain * input + delayed;
         }
     }
 
-    //===================================================
-    template <typename ProcessContext>
-    void process(const ProcessContext& context)
-    {
-        for (int i = 0; i < Steps; ++i)
-        {
-            float rangeHigh = diffusionDelayMs * ((float)(i + 1) / Steps);
-#if DEBUG && DEBUG_PRINTS
-            DBG("Diffusion step " + juce::String(i) + " delay ms " + juce::String(rangeHigh));
-#endif
-            _diffusionSteps[i].process(context, rangeHigh);
-        }
-    }
-
-    //===================================================
-    constexpr inline int getNumSteps()
-    {
-        return Steps;
-    }
 
 private:
-    std::vector<DiffusionStep> _diffusionSteps;
+    dsp::DelayLine<SampleType> m_delayLine;
+    dsp::Oscillator<SampleType> m_oscillator;
 };

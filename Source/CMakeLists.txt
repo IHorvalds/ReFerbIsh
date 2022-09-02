@@ -29,9 +29,9 @@ target_sources(${BaseTargetName} PRIVATE
         Utils.h
         Diffusion/Diffusion.h
         
-        Diffusion/DiffusionStep.h
-        Feedback/Feedback.h
-)
+        
+        
+ "Reverb/Reverb.h")
 
 target_compile_definitions(${BaseTargetName}
         PUBLIC

@@ -5,7 +5,7 @@
 #include "Parameters.h"
 
 #include "Diffusion/Diffusion.h"
-#include "Feedback/Feedback.h"
+#include "Reverb/Reverb.h"
 
 enum ChainPosition
 {
@@ -58,14 +58,18 @@ public:
 
 private:
 
-    int reverbChannels = 8;
+#if DEBUG
+    int inputDiffuserCount = 2;
+#else
+    int inputDiffuserCount = 4;
+#endif
 
     std::vector<float> channelStep;
     juce::AudioBuffer<float> leftProcessBuffer;
     juce::AudioBuffer<float> rightProcessBuffer;
 
-    juce::dsp::ProcessorChain<Diffusion<4>, Feedback> leftChain;
-    juce::dsp::ProcessorChain<Diffusion<4>, Feedback> rightChain;
+    std::vector<Diffusion<float>> inputDiffusers; 
+    SchroederReverb<float> reverb;
 
     //====================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferbishAudioProcessor)
