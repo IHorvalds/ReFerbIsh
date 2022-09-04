@@ -93,7 +93,7 @@ void ReferbishAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 
     channelStep = std::vector<float>(spec.numChannels, { 0.f });
 
-    inputDiffusers = std::vector<Diffusion<float>>(inputDiffuserCount);
+    inputDiffusers = std::vector<SchroederAllpass<float>>(inputDiffuserCount);
 
     //float maxDelayTime = 6e3f;
     reverb.prepare(spec);
@@ -102,7 +102,7 @@ void ReferbishAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     {
         inputDiffusers[i].index = i;
         inputDiffusers[i].maxDiffusionDelayMs = 50.f;
-        inputDiffusers[i].diffusionDelayMs = (float)(i+1) / (float)inputDiffuserCount * 40.f;
+        inputDiffusers[i].diffusionDelaySamples = Utilities::MillisecondsToSamples((float)(i+1) / (float)inputDiffuserCount * 40.f, sampleRate);
         inputDiffusers[i].m_gain = 0.5f;
         inputDiffusers[i].m_modulationAmplitude = 0;
         inputDiffusers[i].prepare(spec);
@@ -165,7 +165,7 @@ void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float modAmp        = m_apvts.getRawParameterValue(MODAMP_PARAM)->load();
     bool bypass         = m_apvts.getRawParameterValue(BYPASS_PARAM)->load();
 
-    bool stereo = numChannels == 2;
+    //bool stereo = numChannels == 2;
 
     if (!bypass)
     {
@@ -210,17 +210,18 @@ juce::AudioProcessorEditor* ReferbishAudioProcessor::createEditor()
 //==============================================================================
 void ReferbishAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
-    juce::ignoreUnused (destData);
+    juce::MemoryOutputStream mos(destData, true);
+    m_apvts.state.writeToStream(mos);
 }
 
 void ReferbishAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
-    juce::ignoreUnused (data, sizeInBytes);
+    auto tree = juce::ValueTree::readFromData(data, sizeInBytes);
+
+    if (tree.isValid()) {
+        m_apvts.replaceState(tree);
+        return;
+    }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout ReferbishAudioProcessor::CreateParameterLayout()
@@ -253,7 +254,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout ReferbishAudioProcessor::Cre
 
     //layout.add(std::make_unique<juce::AudioParameterFloat>(DRIVEGAIN_PARAM, DRIVEGAIN_PARAM, 1.f, 30.f, 2.f));
 
-    layout.add(std::make_unique<juce::AudioParameterFloat>(DRY_PARAM, DRY_PARAM, 0.f, 1.f, 0.5f));\
+    layout.add(std::make_unique<juce::AudioParameterFloat>(DRY_PARAM, DRY_PARAM, 0.f, 1.f, 0.5f));
 
     layout.add(std::make_unique<juce::AudioParameterFloat>(WET_PARAM, WET_PARAM, 0.f, 1.f, 0.5f));
 

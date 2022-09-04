@@ -47,6 +47,13 @@ namespace Utilities {
         return dist(rng);
     }
 
+
+    template <std::floating_point Type, std::floating_point SampleRateType>
+    Type MillisecondsToSamples(Type durationMs, SampleRateType sampleRate) noexcept
+    {
+        return durationMs * gsl::narrow_cast<Type>(0.001 * sampleRate);
+    }
+
     template <typename T>
     void InPlaceHadamardMix(T* vec, size_t start, int size)
     {

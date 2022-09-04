@@ -27,11 +27,12 @@ target_sources(${BaseTargetName} PRIVATE
         PluginEditor.h
         Parameters.h 
         Utils.h
-        Diffusion/Diffusion.h
         
         
-        
- "Reverb/Reverb.h")
+        Diffusion/Allpass.h
+        Diffusion/Diffuser.h
+        Reverb/Reverb.h
+)
 
 target_compile_definitions(${BaseTargetName}
         PUBLIC

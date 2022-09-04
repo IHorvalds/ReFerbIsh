@@ -4,7 +4,7 @@
 #include <vector>
 #include "Parameters.h"
 
-#include "Diffusion/Diffusion.h"
+#include "Diffusion/Allpass.h"
 #include "Reverb/Reverb.h"
 
 enum ChainPosition
@@ -65,10 +65,10 @@ private:
 #endif
 
     std::vector<float> channelStep;
-    juce::AudioBuffer<float> leftProcessBuffer;
-    juce::AudioBuffer<float> rightProcessBuffer;
+    //juce::AudioBuffer<float> leftProcessBuffer;
+    //juce::AudioBuffer<float> rightProcessBuffer;
 
-    std::vector<Diffusion<float>> inputDiffusers; 
+    std::vector<SchroederAllpass<float>> inputDiffusers; 
     SchroederReverb<float> reverb;
 
     //====================================================================
