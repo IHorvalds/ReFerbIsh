@@ -2,15 +2,16 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include <unordered_map>
 #include "Parameters.h"
 
 #include "Diffusion/Allpass.h"
 #include "Reverb/Reverb.h"
 
-enum ChainPosition
-{
-    DiffusionPosition,
-    FeedbackPosition
+const std::vector<std::pair<SchroederReverb<float>::StepOutput, String>> options {
+    std::make_pair(SchroederReverb<float>::StepOutput::MultichannelDiffuser, "Diffuser Drone"),
+    std::make_pair(SchroederReverb<float>::StepOutput::DelayLine, "Delay Line"),
+    std::make_pair(SchroederReverb<float>::StepOutput::Bypass, "Basic")
 };
 
 class ReferbishAudioProcessor : public juce::AudioProcessor
@@ -65,11 +66,14 @@ private:
 #endif
 
     std::vector<float> channelStep;
-    //juce::AudioBuffer<float> leftProcessBuffer;
-    //juce::AudioBuffer<float> rightProcessBuffer;
 
     std::vector<SchroederAllpass<float>> inputDiffusers; 
     SchroederReverb<float> reverb;
+
+    std::unordered_map<String, SmoothedValue<float>> smoothedParameters = {};
+
+    float getSmoothedValue(juce::String parameter);
+    void setSmoothedValue(juce::String parameter);
 
     //====================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferbishAudioProcessor)

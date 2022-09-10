@@ -20,10 +20,21 @@ public:
     SampleType highPassFreq = 200.0;
     SampleType maxDelayInMs = 6000.0;
 
+    enum class StepOutput
+    {
+        MultichannelDiffuser,
+        DelayLine,
+        Bypass
+    };
+
     void prepare(dsp::ProcessSpec& spec) noexcept
     {
         this->m_spec = spec;
         m_oldOutput             = std::vector<SampleType>(m_spec.numChannels, { 0 });
+        m_multiChannelDiffuserIntermediate = std::vector<SampleType>(m_spec.numChannels, { 0 });
+        m_delayLineIntermediate             = std::vector<SampleType>(m_spec.numChannels, { 0 });
+
+
         m_delayTimes            = std::vector<SampleType>(3 * Steps, { 0 });
         m_allpasses             = std::vector<SchroederAllpass<SampleType>>(2 * Steps);
         m_delayLines            = std::vector<dsp::DelayLine<SampleType>>(Steps);
@@ -39,7 +50,7 @@ public:
 
         for (Diffuser<SampleType>& diffuser : m_diffusers)
         {
-            diffuser.m_maxDelayTimeMs = maxDelayInMs; // setMaximumDelayInSamples(gsl::narrow_cast<int>(std::floor(maxDelayInMs * 0.001 * m_spec.sampleRate)));
+            diffuser.m_maxDelayTimeMs = maxDelayInMs;
             diffuser.prepare(m_spec);
         }
 
@@ -62,7 +73,7 @@ public:
         }
     }
 
-    void processStep(std::vector<SampleType>& channelStep, SampleType delayTimeMs, SampleType diffusionGain = 0.5, SampleType modFreq = 1.5, SampleType modAmp = 2) noexcept
+    void processStep(std::vector<SampleType>& channelStep, SampleType delayTimeMs, SampleType diffusionGain = 0.5, SampleType modFreq = 1.5, SampleType modAmp = 2, StepOutput stepOutputChoice = StepOutput::Bypass) noexcept
     {
         for (auto& allpass : m_allpasses)
         {
@@ -93,19 +104,42 @@ public:
             m_allpasses[2 * i].processStep(channelStep);
             m_allpasses[2 * i + 1].processStep(channelStep);
 
+            // Copy to the intermediate buffers
+            std::copy(channelStep.begin(), channelStep.end(), m_multiChannelDiffuserIntermediate.begin());
+            std::copy(channelStep.begin(), channelStep.end(), m_delayLineIntermediate.begin());
+            
+            // Process multi channel diffuser
             m_diffusers[i].m_delayTimeMs = m_delayTimes[3 * i + 2];
-            m_diffusers[i].processStep(channelStep);
+            m_diffusers[i].processStep(m_multiChannelDiffuserIntermediate);
+
+            // Process delay line
+            for (int ch = 0; ch < channelStep.size(); ++ch)
+            {
+                m_delayLines[i].pushSample(ch, m_delayLineIntermediate[ch]);
+                m_delayLineIntermediate[ch] = m_delayLines[i].popSample(ch, m_delayTimes[3 * i + 2]);
+            }
+
+            // choose which one to write out
+            switch (stepOutputChoice)
+            {
+                case StepOutput::MultichannelDiffuser:
+                    std::copy(m_multiChannelDiffuserIntermediate.begin(), m_multiChannelDiffuserIntermediate.end(), channelStep.begin());
+                break;
+
+                case StepOutput::DelayLine:
+                    std::copy(m_delayLineIntermediate.begin(), m_delayLineIntermediate.end(), channelStep.begin());
+                break;
+
+                case StepOutput::Bypass:
+                default:
+                break;
+            }
 
             for (int ch = 0; ch < channelStep.size(); ++ch)
             {
                 channelStep[ch] *= this->krt;
             }
 
-            //for (int ch = 0; ch < channelStep.size(); ++ch) // TODO: replace this with a new ass diffuser
-            //{
-            //    m_delayLines[i].pushSample(ch, channelStep[ch]);
-            //    channelStep[ch] = m_delayLines[i].popSample(ch, m_delayTimes[3 * i + 2]) * this->krt;
-            //}
         }
 
         for (size_t i = 0; i < channelStep.size(); ++i)
@@ -116,6 +150,8 @@ public:
 private:
     dsp::ProcessSpec m_spec;
     std::vector<SampleType> m_oldOutput;
+    std::vector<SampleType> m_multiChannelDiffuserIntermediate;
+    std::vector<SampleType> m_delayLineIntermediate;
     std::vector<SampleType> m_delayTimes;
     std::vector<SchroederAllpass<SampleType>> m_allpasses;
     std::vector<dsp::DelayLine<SampleType>> m_delayLines;

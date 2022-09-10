@@ -26,16 +26,13 @@ public:
         m_channelMapping = std::vector<SampleType>(Lines);
         m_shouldFlip = std::vector<SampleType>(Lines);
 
-        juce::Random _rng;
-        Utilities::Random<SampleType> __rng;
-
         for (int i = 0; i < Lines; ++i)
         {
             m_channelMapping[i] = (SampleType)i;
-            m_shouldFlip[i] = _rng.nextBool() ? 1.0 : -1.0;
+            m_shouldFlip[i] = m_random.random_bool() ? (SampleType)1.0 : (SampleType)-1.0;
         }
 
-        __rng.rand_permutation(m_channelMapping);
+        m_random.rand_permutation(m_channelMapping);
 
         m_delayLine.prepare(delaySpec);
         m_delayLine.setMaximumDelayInSamples(gsl::narrow_cast<int>(Utilities::MillisecondsToSamples(m_maxDelayTimeMs, spec.sampleRate)));
@@ -83,4 +80,6 @@ private:
     std::vector<SampleType> m_delayTimes;
     std::vector<SampleType> m_channelMapping;
     std::vector<SampleType> m_shouldFlip;
+
+    Utilities::Random<SampleType> m_random;
 };

@@ -26,6 +26,12 @@ namespace Utilities {
         Type random_between(Type a, Type b) requires std::integral<Type>;
 
         Type random_between(Type a, Type b) requires std::floating_point<Type>;
+
+        bool random_bool()
+        {
+            std::uniform_int_distribution<int> dist(0, 10'000);
+            return bool(dist(rng) % 2);
+        }
     };
     
 
@@ -55,19 +61,19 @@ namespace Utilities {
     }
 
     template <typename T>
-    void InPlaceHadamardMix(T* vec, size_t start, int size)
+    void InPlaceHadamardMix(T* vec, size_t start, size_t size)
     {
         if (size <= 1)
         {
             return;
         }
 
-        int half_size = size / 2;
+        size_t half_size = size / 2;
 
         InPlaceHadamardMix<T>(vec, start, half_size);
         InPlaceHadamardMix<T>(vec, start + half_size, half_size);
 
-        for (int i = 0; i < half_size; ++i)
+        for (size_t i = 0; i < half_size; ++i)
         {
             T a = vec[start + i];
             T b = vec[start + half_size + i];

@@ -24,6 +24,10 @@
 #define MODAMP_PARAM "Modulation Amplitude"
 #endif // !MODAMP_PARAM
 
+#ifndef REVERB_STEP_CHOICE
+#define REVERB_STEP_CHOICE "Flavour"
+#endif // !REVERB_STEP_CHOICE
+
 //#ifndef CHANNEL_MIX_PARAM
 //#define CHANNEL_MIX_PARAM "Channel mix"
 //#endif // !CHANNEL_MIX_PARAM

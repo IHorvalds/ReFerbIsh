@@ -12,6 +12,14 @@ ReferbishAudioProcessor::ReferbishAudioProcessor()
                      #endif
                        )
 {
+    smoothedParameters[DELAYTIME_PARAM] = SmoothedValue<float>();
+    smoothedParameters[RT60_PARAM] = SmoothedValue<float>();
+    smoothedParameters[MODFREQ_PARAM] = SmoothedValue<float>();
+    smoothedParameters[MODAMP_PARAM] = SmoothedValue<float>();
+    smoothedParameters[LOWPASS_PARAM] = SmoothedValue<float>();
+    smoothedParameters[HIGHPASS_PARAM] = SmoothedValue<float>();
+    smoothedParameters[DRY_PARAM] = SmoothedValue<float>();
+    smoothedParameters[WET_PARAM] = SmoothedValue<float>();
 }
 
 ReferbishAudioProcessor::~ReferbishAudioProcessor()
@@ -150,20 +158,32 @@ void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     int numChannels = buffer.getNumChannels();
 
     // parameters
+    
+    setSmoothedValue(RT60_PARAM);
+    setSmoothedValue(LOWPASS_PARAM);
+    setSmoothedValue(HIGHPASS_PARAM);
+    setSmoothedValue(DRY_PARAM);
+    setSmoothedValue(WET_PARAM);
+    setSmoothedValue(DELAYTIME_PARAM);
+    setSmoothedValue(MODFREQ_PARAM);
+    setSmoothedValue(MODAMP_PARAM);
+
+    
     //float driveGain     = m_apvts.getRawParameterValue(DRIVEGAIN_PARAM)->load();
-    float rt60              = m_apvts.getRawParameterValue(RT60_PARAM)->load();
-    float lowCutoff         = m_apvts.getRawParameterValue(LOWPASS_PARAM)->load();
-    float highCutoff        = m_apvts.getRawParameterValue(HIGHPASS_PARAM)->load();
-    //bool shouldHold     = m_apvts.getRawParameterValue(HOLD_PARAM)->load();
-    //bool shimmer        = m_apvts.getRawParameterValue(SHIMMER_PARAM)->load();
-    //float shimmerAmount = m_apvts.getRawParameterValue(SHIMMERAMOUNT_PARAM)->load();
-    float dry           = m_apvts.getRawParameterValue(DRY_PARAM)->load();
-    float wet           = m_apvts.getRawParameterValue(WET_PARAM)->load();
-    float delayInMs     = m_apvts.getRawParameterValue(DELAYTIME_PARAM)->load();
-    //bool channelMix     = m_apvts.getRawParameterValue(CHANNEL_MIX_PARAM)->load();
-    float modFreq       = m_apvts.getRawParameterValue(MODFREQ_PARAM)->load();
-    float modAmp        = m_apvts.getRawParameterValue(MODAMP_PARAM)->load();
-    bool bypass         = m_apvts.getRawParameterValue(BYPASS_PARAM)->load();
+    float rt60              = getSmoothedValue(RT60_PARAM);
+    float lowCutoff         = getSmoothedValue(LOWPASS_PARAM);
+    float highCutoff        = getSmoothedValue(HIGHPASS_PARAM);
+
+    float dry               = getSmoothedValue(DRY_PARAM);
+    float wet               = getSmoothedValue(WET_PARAM);
+    float delayInMs         = getSmoothedValue(DELAYTIME_PARAM);
+
+    float modFreq           = getSmoothedValue(MODFREQ_PARAM);
+    float modAmp            = getSmoothedValue(MODAMP_PARAM);
+
+
+    int stepOutputChoice    = m_apvts.getParameterAsValue(REVERB_STEP_CHOICE).getValue();
+    bool bypass             = m_apvts.getRawParameterValue(BYPASS_PARAM)->load();
 
     //bool stereo = numChannels == 2;
 
@@ -184,7 +204,7 @@ void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             {
                 diffuser.processStep(channelStep);
             }
-            reverb.processStep(channelStep, delayInMs, 0.5f, modFreq, modAmp);
+            reverb.processStep(channelStep, delayInMs, 0.5f, modFreq, modAmp, options[stepOutputChoice].first);
 
             for (int ch = 0; ch < numChannels; ++ch)
             {
@@ -193,6 +213,16 @@ void ReferbishAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             }
         }
     }
+}
+
+float ReferbishAudioProcessor::getSmoothedValue(juce::String parameter)
+{
+    return smoothedParameters[parameter].getNextValue();
+}
+
+void ReferbishAudioProcessor::setSmoothedValue(juce::String parameter)
+{
+    smoothedParameters[parameter].setTargetValue(m_apvts.getRawParameterValue(parameter)->load());
 }
 
 //==============================================================================
@@ -236,9 +266,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout ReferbishAudioProcessor::Cre
 
     layout.add(std::make_unique<juce::AudioParameterFloat>(MODFREQ_PARAM, MODFREQ_PARAM, 0.5f, 10.f, 3.f));
     
-    //layout.add(std::make_unique<juce::AudioParameterBool>(MODULATE_PARAM, MODULATE_PARAM, false));
-    
     layout.add(std::make_unique<juce::AudioParameterFloat>(MODAMP_PARAM, MODAMP_PARAM, 1.f, 10.f, 1.5f));
+
+    StringArray optionsArray;
+    for (auto& o : options)
+    {
+        optionsArray.add(o.second);
+    }
+
+    layout.add( std::make_unique<juce::AudioParameterChoice>(REVERB_STEP_CHOICE, REVERB_STEP_CHOICE, optionsArray, 1) );
 
     //layout.add(std::make_unique<juce::AudioParameterBool>(CHANNEL_MIX_PARAM, CHANNEL_MIX_PARAM, false));
 
