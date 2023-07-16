@@ -5,6 +5,8 @@
 
 #include "../Utils.h"
 
+using namespace ihpedals;
+
 template <std::floating_point SampleType, int Lines = 8>
 class Diffuser
 {
@@ -20,7 +22,7 @@ public:
         this->m_spec = spec;
         dsp::ProcessSpec delaySpec = spec;
         delaySpec.numChannels = Lines * spec.numChannels;
-        
+
         m_delayStep = std::vector<SampleType>(Lines);
         m_delayTimes = std::vector<SampleType>(Lines * spec.numChannels);
         m_channelMapping = std::vector<SampleType>(Lines);
@@ -35,7 +37,9 @@ public:
         m_random.rand_permutation(m_channelMapping);
 
         m_delayLine.prepare(delaySpec);
-        m_delayLine.setMaximumDelayInSamples(gsl::narrow_cast<int>(Utilities::MillisecondsToSamples(m_maxDelayTimeMs, spec.sampleRate)));
+        m_delayLine.setMaximumDelayInSamples(
+            gsl::narrow_cast<int>(utilities::milliseconds_to_samples(m_maxDelayTimeMs, spec.sampleRate))
+        );
     }
 
     void calculateDelayTimes()
@@ -44,7 +48,9 @@ public:
         {
             for (int line = 0; line < Lines; ++line)
             {
-                m_delayTimes[ch * Lines + line] = Utilities::MillisecondsToSamples((SampleType)(line+1) / (SampleType)Lines * m_delayTimeMs, this->m_spec.sampleRate);
+                m_delayTimes[ch * Lines + line] = utilities::milliseconds_to_samples(
+                    (SampleType)(line + 1) / (SampleType)Lines * m_delayTimeMs, this->m_spec.sampleRate
+                );
             }
         }
     }
@@ -60,19 +66,20 @@ public:
             for (int line = 0; line < Lines; ++line)
             {
                 m_delayLine.pushSample(ch * Lines + line, channelStep[ch]);
-                m_delayStep[m_channelMapping[line]] = m_delayLine.popSample(ch * Lines + line, m_delayTimes[ch * Lines + line]) * m_shouldFlip[line];
+                m_delayStep[m_channelMapping[line]] =
+                    m_delayLine.popSample(ch * Lines + line, m_delayTimes[ch * Lines + line]) * m_shouldFlip[line];
             }
 
-            Utilities::InPlaceHadamardMix<SampleType>(m_delayStep.data(), 0, m_delayStep.size());
+            utilities::in_place_hadamard_mix<SampleType>(m_delayStep.data(), 0, m_delayStep.size());
             channelStep[ch] = (SampleType)0.0;
 
             for (int line = 0; line < Lines; ++line)
             {
                 channelStep[ch] += (m_delayStep[line] * multiplier);
             }
-
         }
     }
+
 private:
     dsp::ProcessSpec m_spec;
     dsp::DelayLine<SampleType> m_delayLine;
@@ -81,5 +88,5 @@ private:
     std::vector<SampleType> m_channelMapping;
     std::vector<SampleType> m_shouldFlip;
 
-    Utilities::Random<SampleType> m_random;
+    utilities::random<SampleType> m_random;
 };

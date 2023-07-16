@@ -1,8 +1,7 @@
-#include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "PluginProcessor.h"
 
-ReferbishAudioProcessorEditor::ReferbishAudioProcessorEditor(
-    ReferbishAudioProcessor& p)
+ReferbishAudioProcessorEditor::ReferbishAudioProcessorEditor(ReferbishAudioProcessor& p)
     : AudioProcessorEditor(&p), _processor(p)
 {
     setSize(400, 300);
@@ -10,11 +9,11 @@ ReferbishAudioProcessorEditor::ReferbishAudioProcessorEditor(
 
 void ReferbishAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
 
-    g.setColour (juce::Colours::white);
-    g.setFont (15.0f);
-    g.drawFittedText ("Hello World!", getLocalBounds(), juce::Justification::centred, 1);
+    g.setColour(juce::Colours::white);
+    g.setFont(15.0f);
+    g.drawFittedText("Hello World!", getLocalBounds(), juce::Justification::centred, 1);
 }
 
 void ReferbishAudioProcessorEditor::resized()

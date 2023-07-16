@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(ReFerbIsh)
+project(ReFerbIsh VERSION 0.0.1)
 set(CMAKE_CXX_STANDARD 20)
 
 #including CPM.cmake, a package manager:
@@ -11,15 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 #Minimum MacOS target, set globally
 
-if (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
-    set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0 CACHE STRING "Minimum OS X deployment version" FORCE)
-
-    #code signing to run on an iOS device:
-#    set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer" CACHE STRING "" FORCE)
-#    set(CMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "XXXXXXXXXX" CACHE STRING "" FORCE)
-else()
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9" CACHE STRING "Minimum OS X deployment version" FORCE)
-endif()
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9" CACHE STRING "Minimum OS X deployment version" FORCE)
 
 option(UniversalBinary "Build universal binary for mac" OFF)
 
@@ -42,7 +34,10 @@ option(JUCE_BUILD_EXAMPLES "Build JUCE Examples" OFF)
 #Fetching JUCE from git
 #IF you want to instead point it to a local version, you can invoke CMake with
 #-DCPM_JUCE_SOURCE="Path_To_JUCE"
-CPMAddPackage("gh:juce-framework/JUCE#master")
+find_package(JUCE
+        CONFIG REQUIRED
+        PATHS "$ENV{SDK_PATH}/JUCE/install"
+        NO_DEFAULT_PATH)
 CPMAddPackage("gh:Chowdhury-DSP/chowdsp_utils#master")
 CPMAddPackage("gh:Microsoft/GSL#main")
 

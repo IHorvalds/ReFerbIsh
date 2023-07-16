@@ -28,21 +28,21 @@
 #define REVERB_STEP_CHOICE "Flavour"
 #endif // !REVERB_STEP_CHOICE
 
-//#ifndef CHANNEL_MIX_PARAM
-//#define CHANNEL_MIX_PARAM "Channel mix"
-//#endif // !CHANNEL_MIX_PARAM
+// #ifndef CHANNEL_MIX_PARAM
+// #define CHANNEL_MIX_PARAM "Channel mix"
+// #endif // !CHANNEL_MIX_PARAM
 //
-//#ifndef HOLD_PARAM
-//#define HOLD_PARAM "Hold"
-//#endif // !HOLD_PARAM
+// #ifndef HOLD_PARAM
+// #define HOLD_PARAM "Hold"
+// #endif // !HOLD_PARAM
 //
-//#ifndef SHIMMER_PARAM
-//#define SHIMMER_PARAM "Shimmer"
-//#endif // !SHIMMER_PARAM
+// #ifndef SHIMMER_PARAM
+// #define SHIMMER_PARAM "Shimmer"
+// #endif // !SHIMMER_PARAM
 //
-//#ifndef SHIMMERAMOUNT_PARAM
-//#define SHIMMERAMOUNT_PARAM "Shimmer Amount"
-//#endif // !SHIMMERAMOUNT_PARAM
+// #ifndef SHIMMERAMOUNT_PARAM
+// #define SHIMMERAMOUNT_PARAM "Shimmer Amount"
+// #endif // !SHIMMERAMOUNT_PARAM
 
 #ifndef LOWPASS_PARAM
 #define LOWPASS_PARAM "Lowpass cutoff"
@@ -52,9 +52,9 @@
 #define HIGHPASS_PARAM "Highpass cutoff"
 #endif // !HIGHPASS_PARAM
 
-//#ifndef DRIVEGAIN_PARAM
-//#define DRIVEGAIN_PARAM "Feedback Drive"
-//#endif // !DRIVEGAIN_PARAM
+// #ifndef DRIVEGAIN_PARAM
+// #define DRIVEGAIN_PARAM "Feedback Drive"
+// #endif // !DRIVEGAIN_PARAM
 
 #ifndef DRY_PARAM
 #define DRY_PARAM "Dry Level"

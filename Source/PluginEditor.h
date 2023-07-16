@@ -6,6 +6,7 @@ class ReferbishAudioProcessorEditor : public juce::AudioProcessorEditor
 {
 public:
     explicit ReferbishAudioProcessorEditor(ReferbishAudioProcessor& p);
+
 private:
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -13,5 +14,5 @@ private:
     ReferbishAudioProcessor& _processor;
 
     //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferbishAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ReferbishAudioProcessorEditor)
 };

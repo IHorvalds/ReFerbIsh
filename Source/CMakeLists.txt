@@ -1,11 +1,4 @@
-project(ReFerbIsh VERSION 0.0.1)
-
-set (BaseTargetName ReFerbIsh)
-
-juce_add_plugin("${BaseTargetName}"
-        VERSION "0.1"                         # Set this if the plugin version is different to the project version
-        # ICON_BIG ...                              # ICON_* arguments specify a path to an image file to use as an icon for the Standalone
-        # ICON_SMALL ...
+juce_add_plugin("${CMAKE_PROJECT_NAME}"
         COMPANY_NAME "IH Pedals"
         IS_SYNTH FALSE
         NEEDS_MIDI_INPUT FALSE
@@ -16,32 +9,37 @@ juce_add_plugin("${BaseTargetName}"
         PLUGIN_MANUFACTURER_CODE IHpd
         PLUGIN_CODE Rfrb
         FORMATS AU VST3 Standalone
-        PRODUCT_NAME "ReFerbIsh Reverb ${CMAKE_BUILD_TYPE}")
+        PRODUCT_NAME "ReFerbIsh Reverb MT - ${CMAKE_BUILD_TYPE}")
 
-juce_generate_juce_header(${BaseTargetName})
+juce_generate_juce_header(${CMAKE_PROJECT_NAME})
 
-target_sources(${BaseTargetName} PRIVATE
+add_subdirectory(Scheduler)
+
+target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
+        Scheduler)
+
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         PluginProcessor.cpp
         PluginProcessor.h
         PluginEditor.cpp
         PluginEditor.h
-        Parameters.h 
+        Parameters.h
         Utils.h
-        
-        
+
         Diffusion/Allpass.h
         Diffusion/Diffuser.h
+        ParallelDiffusion/parallel_schroeder_allpass.h
         Reverb/Reverb.h
-)
+        )
 
-target_compile_definitions(${BaseTargetName}
+target_compile_definitions(${CMAKE_PROJECT_NAME}
         PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0)
 
-target_link_libraries(${BaseTargetName}
-    PRIVATE
+target_link_libraries(${CMAKE_PROJECT_NAME}
+        PRIVATE
         juce::juce_audio_utils
         juce::juce_dsp
         juce::juce_data_structures
@@ -54,7 +52,7 @@ target_link_libraries(${BaseTargetName}
         juce::juce_audio_formats
         chowdsp::chowdsp_dsp_utils
         Microsoft.GSL::GSL
-    PUBLIC
+        PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
